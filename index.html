@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI IDE Config & Prompt Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for webkit browsers */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .copy-button {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .copy-button:hover {
+            background-color: #2980b9;
+        }
+        .output-container {
+            position: relative;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-slate-900 to-slate-800 text-gray-100 min-h-screen flex flex-col items-center justify-center p-4 sm:p-6">
+
+    <div class="bg-slate-800 shadow-2xl rounded-xl p-6 sm:p-10 w-full max-w-3xl">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl sm:text-4xl font-bold text-white">AI IDE Config & Prompt Generator</h1>
+            <p class="text-slate-400 mt-2 text-sm sm:text-base">Generate tailored configurations for your AI-powered IDE.</p>
+        </header>
+
+        <form id="configForm" class="space-y-6">
+            <div>
+                <label for="projectDescription" class="block text-sm font-medium text-sky-300 mb-1">Raw Project Description</label>
+                <textarea id="projectDescription" rows="4" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg shadow-sm focus:ring-sky-500 focus:border-sky-500 text-gray-100 placeholder-slate-400 text-sm" placeholder="e.g., A web application for task management using React, Node.js, and PostgreSQL. Users should be able to create, update, delete tasks, and assign them to others."></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                    <label for="ide" class="block text-sm font-medium text-sky-300 mb-1">Target IDE</label>
+                    <select id="ide" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg shadow-sm focus:ring-sky-500 focus:border-sky-500 text-gray-100 text-sm">
+                        <option value="Cursor">Cursor</option>
+                        <option value="Windsurf">Windsurf (Codeium)</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="projectType" class="block text-sm font-medium text-sky-300 mb-1">Project Type</label>
+                    <select id="projectType" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg shadow-sm focus:ring-sky-500 focus:border-sky-500 text-gray-100 text-sm">
+                        <option value="From Scratch">From Scratch</option>
+                        <option value="Existing Project">Existing Project</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label for="prdGuidelines" class="block text-sm font-medium text-sky-300 mb-1">PRD Guidelines / Key Requirements</label>
+                <textarea id="prdGuidelines" rows="4" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg shadow-sm focus:ring-sky-500 focus:border-sky-500 text-gray-100 placeholder-slate-400 text-sm" placeholder="e.g., - Must use TypeScript. - Adhere to Material UI design principles. - API endpoints should follow RESTful conventions. - Include comprehensive unit tests."></textarea>
+            </div>
+            
+            <div>
+                <label for="apiKey" class="block text-sm font-medium text-sky-300 mb-1">Gemini API Key</label>
+                <input type="password" id="apiKey" class="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg shadow-sm focus:ring-sky-500 focus:border-sky-500 text-gray-100 placeholder-slate-400 text-sm" placeholder="Gemini API Key will be loaded from environment">
+                 <p class="mt-1 text-xs text-slate-500">Your API key is used directly in the browser. For production apps, handle API keys securely on a backend.</p>
+            </div>
+
+            <button type="submit" class="w-full bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 text-white font-semibold py-3 px-4 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-sky-500 transition duration-150 ease-in-out text-base">
+                Generate Configuration
+            </button>
+        </form>
+
+        <div id="loadingIndicator" class="hidden my-6">
+            <div class="loader"></div>
+            <p class="text-center text-slate-400">Generating, please wait...</p>
+        </div>
+        <div id="errorMessage" class="hidden my-6 p-4 bg-red-700 border border-red-600 text-red-100 rounded-lg text-sm"></div>
+
+        <div id="results" class="mt-10 space-y-8 hidden">
+            <div>
+                <h2 class="text-2xl font-semibold text-sky-300 mb-3">Generated IDE Rules</h2>
+                <div class="output-container">
+                    <pre id="ideRulesOutput" class="bg-slate-900 p-4 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap break-words shadow-inner"></pre>
+                    <button class="copy-button" onclick="copyToClipboard('ideRulesOutput')">Copy</button>
+                </div>
+            </div>
+            <div>
+                <h2 class="text-2xl font-semibold text-sky-300 mb-3">Tailored Project Prompt</h2>
+                 <div class="output-container">
+                    <pre id="projectPromptOutput" class="bg-slate-900 p-4 rounded-lg text-sm overflow-x-auto whitespace-pre-wrap break-words shadow-inner"></pre>
+                    <button class="copy-button" onclick="copyToClipboard('projectPromptOutput')">Copy</button>
+                </div>
+            </div>
+            <div>
+                <h2 class="text-2xl font-semibold text-sky-300 mb-3">Explanation</h2>
+                <p id="explanationOutput" class="bg-slate-900 p-4 rounded-lg text-sm whitespace-pre-wrap break-words shadow-inner"></p>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center mt-10 pb-6">
+        <p class="text-xs text-slate-500">&copy; 2025 AI IDE Config Generator. For demonstration purposes.</p>
+    </footer>
+
+    <script>
+        const form = document.getElementById('configForm');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const errorMessageElement = document.getElementById('errorMessage');
+        const resultsDiv = document.getElementById('results');
+        const ideRulesOutput = document.getElementById('ideRulesOutput');
+        const projectPromptOutput = document.getElementById('projectPromptOutput');
+        const explanationOutput = document.getElementById('explanationOutput');
+
+        // Load API key from environment variable if available
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof GEMINI_API_KEY !== 'undefined') {
+                document.getElementById('apiKey').value = GEMINI_API_KEY;
+            }
+        });
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            clearPreviousResults();
+            loadingIndicator.classList.remove('hidden');
+
+            const projectDescription = document.getElementById('projectDescription').value.trim();
+            const ide = document.getElementById('ide').value;
+            const projectType = document.getElementById('projectType').value;
+            const prdGuidelines = document.getElementById('prdGuidelines').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+
+            if (!projectDescription && !prdGuidelines) { // Check if both are empty, one might be enough
+                displayError("Please provide at least a Project Description or PRD Guidelines.");
+                loadingIndicator.classList.add('hidden');
+                return;
+            }
+            if (!apiKey) {
+                displayError("API Key cannot be empty.");
+                loadingIndicator.classList.add('hidden');
+                return;
+            }
+
+            const geminiMetaPrompt = constructGeminiPrompt(projectDescription, ide, projectType, prdGuidelines);
+            
+            try {
+                const responseSchema = {
+                    type: "OBJECT",
+                    properties: {
+                        "ideRules": { "type": "STRING" },
+                        "projectPrompt": { "type": "STRING" },
+                        "explanation": { "type": "STRING" }
+                    },
+                    required: ["ideRules", "projectPrompt", "explanation"]
+                };
+
+                const payload = {
+                    contents: [{ role: "user", parts: [{ text: geminiMetaPrompt }] }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: responseSchema,
+                        temperature: 0.4 // Slightly increased temperature for more creative inference if needed
+                    }
+                };
+                
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error('API Error Data:', errorData);
+                    throw new Error(`API request failed with status ${response.status}: ${errorData.error?.message || 'Unknown error'}`);
+                }
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    
+                    const rawJsonText = result.candidates[0].content.parts[0].text;
+                    // It's good practice to try-catch JSON parsing
+                    try {
+                        const parsedJson = JSON.parse(rawJsonText);
+                        ideRulesOutput.textContent = parsedJson.ideRules;
+                        projectPromptOutput.textContent = parsedJson.projectPrompt;
+                        explanationOutput.textContent = parsedJson.explanation;
+                        resultsDiv.classList.remove('hidden');
+                    } catch (jsonParseError) {
+                        console.error('JSON Parsing Error:', jsonParseError, "Raw text:", rawJsonText);
+                        throw new Error('Failed to parse JSON response from API.');
+                    }
+                } else {
+                    console.error('Unexpected API response structure:', result);
+                    throw new Error('Failed to parse response from API or response structure is unexpected.');
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                displayError(`An error occurred: ${error.message}`);
+            } finally {
+                loadingIndicator.classList.add('hidden');
+            }
+        });
+
+        function constructGeminiPrompt(projectDescription, ide, projectType, prdGuidelines) {
+            // This is the meta-prompt that instructs Gemini on how to generate the rules and project prompt.
+            // It includes the logic for selecting Genesis or Continuum templates.
+
+            const genesisFramework = `
+###ROLE_ASSIGNMENT###
+You are an Expert ${ide} AI Assistant, specializing in [Infer relevant domain from project description/PRD, e.g., web development with React and Node.js. If description is sparse, assume general software development best practices].
+
+###PROJECT_GOAL_AND_OBJECTIVES###
+Project Goal: [Synthesize and infer from Project Description: "${projectDescription}". If description is vague, attempt to identify a primary goal based on any provided keywords or technologies.]
+Key Objectives:
+[Extract, synthesize, and infer from PRD Guidelines: "${prdGuidelines}" and Project Description. If sparse, list common objectives for such a project type.]
+
+###INPUT_DOCUMENTATION_AND_RESOURCES###
+Primary Reference: User-provided PRD Guidelines ("${prdGuidelines}").
+Secondary Reference: User-provided Project Description ("${projectDescription}").
+[If user mentions specific docs/links in PRD, list them here. If none, state "No explicit external documentation provided; rely on general knowledge and inference." ]
+
+###CORE_CONSTRAINTS_AND_RULES###
+[Extract and infer from PRD: "${prdGuidelines}", e.g., "Must use TypeScript", "Adhere to Tailwind CSS for styling", "Follow SOLID principles". If sparse, suggest common best-practice constraints for the inferred project type/technologies.]
+
+###TASK_BREAKDOWN_AND_PLANNING_CoT###
+Let's think step by step to create a comprehensive plan for [main goal inferred from project description: "${projectDescription}"]. Your plan should include:
+1.  Analysis of requirements from PRD ("${prdGuidelines}") and Project Description ("${projectDescription}"), using inference where details are missing.
+2.  Key features/modules to develop, inferring logical components if not explicitly stated.
+3.  Technology stack choices and justifications (aligning with constraints, or suggesting suitable ones if not specified).
+4.  High-level implementation steps.
+5.  Considerations for testing and quality, even if not explicitly requested.
+
+###EXPECTED_OUTPUT_FORMAT_AND_STRUCTURE###
+[Specify if initial output should be project structure, specific files, etc., based on PRD: "${prdGuidelines}". If no specific format is requested, aim for a generally useful starting point for a ${projectType} project.]
+Example: "Initial output should be a directory structure for a new [inferred technology] project, with placeholder files for key modules."
+
+###KEY_QUALITY_ATTRIBUTES###
+[e.g., "Code must be modular, well-commented, and include error handling.", "Documentation should be clear and comprehensive.", based on "${prdGuidelines}" or inferred best practices.]
+
+###VERIFICATION_AND_REFINEMENT_STEP###
+After generating the initial plan/structure, review it against all objectives (explicit and inferred), constraints, and quality attributes. Identify any discrepancies and provide a revised version.
+`;
+
+            const continuumIntegrator = `
+###ROLE_ASSIGNMENT###
+You are an Expert ${ide} AI Assistant, specializing in integrating new features into existing [Infer relevant domain/technology from project description: "${projectDescription}"] projects. If description is sparse, assume a common technology stack for integration tasks.
+
+###EXISTING_PROJECT_CONTEXT_SUMMARY###
+[If user provides context about existing project in description/PRD ("${projectDescription}", "${prdGuidelines}"), summarize here. Otherwise, state: "Assume a standard [inferred technology] project structure unless specific context is found. Make reasonable inferences about existing patterns if information is lacking."]
+
+###RELEVANT_FILES_FUNCTIONS_APIS_TO_CONSIDER###
+[Prompt the IDE's AI to identify these based on the new requirements and project description. e.g., "Based on the new requirement to add X (from "${projectDescription}"/"${prdGuidelines}"), identify relevant existing files/functions in the project that will need modification or will serve as a reference. If the project description is vague, suggest common integration points for such a feature."]
+
+###PROVIDED_CODE_SNIPPETS_OR_DOCUMENT_EXCERPTS###
+[User's PRD ("${prdGuidelines}") and Project Description ("${projectDescription}") serve this purpose. If IDE allows referencing specific code, this section would guide that.]
+
+###NEW_REQUIREMENTS_OR_MODIFICATIONS###
+New Requirement: [Synthesize and infer from Project Description ("${projectDescription}") and PRD Guidelines ("${prdGuidelines}") specifically about the new task. If details are missing, infer a common interpretation of the task.]
+
+###EXISTING_PATTERNS_AND_STYLES_TO_ADHERE_TO###
+You MUST meticulously analyze the existing codebase (once available or pointed to) to identify and strictly follow established coding conventions, architectural patterns, variable naming, commenting style, and error handling mechanisms. If no specific patterns are provided or inferable, apply generally accepted best practices for the likely technologies involved. Do not introduce new patterns without explicit instruction or strong justification based on inferred project needs.
+
+###AREAS_TO_AVOID_MODIFYING_OR_IMPACTING###
+[If PRD ("${prdGuidelines}") mentions critical areas, list them. Otherwise, state "Minimize side effects on unrelated modules. Strive to understand implicit dependencies if not explicitly stated."]
+
+###CHAIN_OF_THOUGHT_FOR_INTEGRATION_STRATEGY###
+Let's think step by step. Based on the new requirement (explicit or inferred) and the need to integrate into an existing project:
+1.  How will you identify the relevant parts of the existing codebase to modify or extend, even if context is limited?
+2.  What is your strategy for implementing the new requirement while ensuring consistency with existing patterns (or applying best practices if patterns are unclear)?
+3.  What are potential impact points or risks, and how will you mitigate them? Consider common pitfalls for the type of integration.
+4.  How will you ensure the changes are well-documented and testable?
+
+###EXPECTED_OUTPUT_DELTA_OR_FULL_FILE###
+[e.g., "Provide the modified code sections or new files required. If modifying existing files, clearly indicate changes, similar to a diff.", based on "${prdGuidelines}" or a sensible default for integration tasks.]
+
+###PRE_COMMIT_CHECKS_AND_VERIFICATION###
+Before finalizing your proposed changes:
+1.  Does the solution meet all aspects of the new requirement (explicit and inferred)?
+2.  Does it strictly adhere to identified existing patterns and styles from the project (or best practices if unclear)?
+3.  Does it avoid impacting specified restricted areas (or minimize impact generally)?
+4.  Are there any obvious bugs, security concerns, or performance degradations introduced?
+List any concerns and then provide the final code/solution.
+`;
+            
+            const selectedTemplate = projectType === "From Scratch" ? genesisFramework : continuumIntegrator;
+
+            return `
+You are an expert AI assistant specializing in AI-powered IDEs (like Cursor and Windsurf) and advanced prompt engineering. Your task is to generate IDE-specific rules and a tailored project prompt based on the user's project details.
+**Crucially, if the user's project description or PRD guidelines are sparse, vague, or incomplete, you MUST use your advanced inference capabilities to deduce the most likely intent, fill in logical gaps, and propose sensible defaults or common best practices for the given IDE and project type. Your goal is to provide a maximally useful starting point even with minimal input.**
+
+**User Provided Information:**
+1.  **Raw Project Description:**
+    \`\`\`
+    ${projectDescription || "Not explicitly provided, please infer."} 
+    \`\`\`
+2.  **Target IDE:** ${ide}
+3.  **Project Type:** ${projectType}
+4.  **PRD Guidelines:**
+    \`\`\`
+    ${prdGuidelines || "Not explicitly provided, please infer or apply best practices."}
+    \`\`\`
+
+**Your Task:**
+Based on all the information above (including your inferences for any missing details), and considering the best practices for the selected IDE and project type, generate the following:
+
+1.  **IDE-Specific Rules:**
+    * If IDE is Cursor: Generate rules suitable for \`.cursor/rules/*.mdc\` files or global user rules. Focus on conciseness and relevance for token efficiency. Rules should help the Cursor AI understand project standards, technologies, and preferred coding styles (inferred if necessary). Format as Markdown text.
+    * If IDE is Windsurf: Generate rules suitable for Windsurf's "Rules" feature (typically a list of directives). Focus on guiding the Cascade agent effectively. Format as a list of rules, each on a new line.
+    * The rules should be derived from the PRD guidelines and project description, using strong inference if these are lacking.
+
+2.  **Tailored Project Prompt:**
+    * Adapt the following template to create a comprehensive prompt for the AI IDE. This prompt should incorporate the project description and PRD guidelines (or your best inferences thereof).
+    * **Template to Adapt:**
+        \`\`\`
+        ${selectedTemplate}
+        \`\`\`
+    * **Important for Adaptation:** When filling in placeholders like "[Synthesize from Project Description]" or "[Extract/Synthesize from PRD Guidelines]", if the source material is weak, explicitly state your inference. For example: "Project Goal: [Inferred from keywords: To build a basic e-commerce backend API, as 'product management' and 'Node.js' were mentioned.]"
+
+3.  **Explanation:**
+    * Briefly explain why the generated rules and prompt are suitable for the given scenario, highlighting key considerations for the chosen IDE and project type. If you made significant inferences due to sparse input, briefly mention the basis for those inferences.
+
+Ensure your entire response is a single, valid JSON object adhering to the schema I will provide in the API call (properties: "ideRules", "projectPrompt", "explanation").
+The 'ideRules' should be a single string (e.g., Markdown text for Cursor, or newline-separated rules for Windsurf).
+The 'projectPrompt' should be a single string.
+The 'explanation' should be a single string.
+Fill in the placeholders like "[Synthesize from Project Description]" within the chosen template with actual content derived from the user's inputs or your well-reasoned inferences.
+`;
+        }
+
+        function displayError(message) {
+            errorMessageElement.textContent = message;
+            errorMessageElement.classList.remove('hidden');
+            resultsDiv.classList.add('hidden');
+        }
+
+        function clearPreviousResults() {
+            errorMessageElement.classList.add('hidden');
+            resultsDiv.classList.add('hidden');
+            ideRulesOutput.textContent = '';
+            projectPromptOutput.textContent = '';
+            explanationOutput.textContent = '';
+        }
+
+        function copyToClipboard(elementId) {
+            const textToCopy = document.getElementById(elementId).textContent;
+            const textArea = document.createElement("textarea");
+            textArea.value = textToCopy;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                const button = event.target; // Get the button that was clicked
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                setTimeout(() => { button.textContent = originalText; }, 2000);
+
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                // Avoid using alert()
+                const button = event.target;
+                button.textContent = 'Copy Failed';
+                 setTimeout(() => { button.textContent = 'Copy'; }, 2000);
+            }
+            document.body.removeChild(textArea);
+        }
+
+    </script>
+</body>
+</html>
