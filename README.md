@@ -16,7 +16,7 @@ The application aims to streamline the initial setup for AI-assisted development
 * **IDE Selection:** Supports Cursor and Windsurf (Codeium) as target IDEs.
 * **Project Type Specificity:** Differentiates between projects starting "From Scratch" and "Existing Projects" to tailor the master prompt template.
 * **Dynamic Prompt Generation:** Constructs a detailed meta-prompt for the Gemini API based on user inputs.
-* **Gemini API Integration:** Utilizes the `gemini-2.0-flash` model to generate structured JSON output (IDE rules, project prompt, explanation).
+* **Gemini API Integration:** Utilizes the `gemini-3.0-flash-preview` model to generate structured JSON output (IDE rules, project prompt, explanation).
 * **Advanced Prompting Strategies:**
     * Employs "Genesis Framework" and "Continuum Integrator" base templates.
     * Instructs Gemini to use inference for vague or incomplete user descriptions to provide the most useful output possible.
@@ -52,7 +52,7 @@ The application aims to streamline the initial setup for AI-assisted development
 
 ### 4.2. Gemini API Integration
 
-* **Model:** The application uses the `gemini-2.0-flash` model via the `generativelanguage.googleapis.com` endpoint.
+* **Model:** The application uses the `gemini-3.0-flash-preview` model via the `generativelanguage.googleapis.com` endpoint.
 * **API Call:** A `POST` request is made to the `generateContent` endpoint.
 * **Structured Output (JSON Schema):** The `generationConfig` in the API payload specifies `responseMimeType: "application/json"` and provides a `responseSchema`. This instructs Gemini to return its output as a JSON object with predefined keys: `ideRules`, `projectPrompt`, and `explanation`. This is crucial for reliably parsing the AI's response.
     ```json
